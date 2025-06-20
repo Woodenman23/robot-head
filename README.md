@@ -1,0 +1,3 @@
+This is the next step from LED_controller.
+
+I wanted to build something scalable so everything is being re-written in Go...
