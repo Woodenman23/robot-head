@@ -28,12 +28,35 @@ func getEnv(key, defaultValue string) string {
 }
 
 func createResponse(msg shared.Message) shared.Message {
-	return shared.Message{
-		Type:      shared.MessageTypeAIResponse,
-		Timestamp: time.Now().Unix(),
-		Data:      fmt.Sprintf("Server received: %v", msg.Data),
-	}
-}
+        // Call OpenAI for user input messages
+        if msg.Type == shared.MessageTypeUserInput {
+  		if userText, ok := msg.Data.(string); ok {
+  			aiResponse, err := callLLM(userText)
+  			if err != nil {
+  				log.Printf("OpenAI API error: %v", err)
+  				return shared.Message{
+  					Type:      shared.MessageTypeError,
+  					Timestamp: time.Now().Unix(),
+  					Data:      "Sorry, I'm having trouble thinking right now.",
+  				}
+  			}
+
+  			return shared.Message{
+  				Type:      shared.MessageTypeAIResponse,
+  				Timestamp: time.Now().Unix(),
+  				Data:      aiResponse,
+  			}
+  		}
+  	}
+
+  	// Fallback for other message types
+  	return shared.Message{
+  		Type:      shared.MessageTypeStatus,
+  		Timestamp: time.Now().Unix(),
+  		Data:      fmt.Sprintf("Received: %v", msg.Data),
+  	}
+  }
+
 
 func handleMessageExchange(conn *websocket.Conn) {
 	for {

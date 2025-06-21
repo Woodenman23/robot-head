@@ -61,7 +61,13 @@ func listenForMessages(conn *websocket.Conn) {
 			log.Println("Connection closed", err)
 			break
 		}
-		fmt.Printf("Recieved: %s - %v\n", response.Type, response.Data)
+		// Format AI responses nicely
+		if response.Type == shared.MessageTypeAIResponse {
+			fmt.Printf("\nRobot: %v\n\n", response.Data)
+		} else {
+			// Other message types (status, error, etc.)
+			fmt.Printf("Server: %v\n", response.Data)
+		}
 	}
 }
 
@@ -73,6 +79,7 @@ func sendMessages(conn *websocket.Conn) {
 		if text == "" {
 			continue
 		}
+		
 
 		userMessage := createUserMessage(text)
 		err := conn.WriteJSON(userMessage)
