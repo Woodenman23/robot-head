@@ -1,32 +1,41 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
-	"github.com/gorilla/websocket"
+	"os"
+	"os/signal"
+	"syscall"
 	"robot-head/shared"
+	"time"
+
+	"github.com/gorilla/websocket"
 )
 
-// WebSocket upgrader
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // Allow connections from any origin
 	},
 }
 
-// Handle WebSocket connections
-func handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println("WebSocket upgrade failed:", err)
-		return
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
-	defer conn.Close()
+	return defaultValue
+}
 
-	fmt.Println("Client connected via WebSocket")
+func createResponse(msg shared.Message) shared.Message {
+	return shared.Message{
+		Type:      shared.MessageTypeAIResponse,
+		Timestamp: time.Now().Unix(),
+		Data:      fmt.Sprintf("Server received: %v", msg.Data),
+	}
+}
 
-	// Keep connection alive and handle messages
+func handleMessageExchange(conn *websocket.Conn) {
 	for {
 		var msg shared.Message
 		err := conn.ReadJSON(&msg)
@@ -36,30 +45,73 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 		
 		fmt.Printf("Received: %+v\n", msg)
-		// TODO: Process message and send response
+		
+		response := createResponse(msg)
+		err = conn.WriteJSON(response)
+		if err != nil {
+			log.Println("Failed to send response:", err)
+			break
+		}
 	}
 }
 
-func main() {
-	portNum := ":9001"
+// Handle WebSocket connections
+func establishWebsocketConnection(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("WebSocket upgrade failed:", err)
+		return
+	}
+	defer conn.Close()
 
-	// health check endpoint
+	fmt.Println("Client connected via WebSocket")
+	handleMessageExchange(conn)
+}
+
+
+func main() {
+	port := getEnv("PORT", "9001")
+	host := getEnv("HOST", "0.0.0.0")
+	portNum := ":" + port
+
+	server := &http.Server{
+		Addr: host + portNum,
+	}
+
+	// health check endpoint - used for Docker health checks
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Server is healthy!")
 	})
 
-	// Test endpoint
-	http.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "You made a %s request to /test", r.Method)
-	})
-
-	// landing page
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hello from Robot Head Server!")
 	})
 
-	http.HandleFunc("/ws", handleWebSocket)
+	http.HandleFunc("/ws", establishWebsocketConnection)
 
-	fmt.Printf("Server started on localhost%s\n", portNum)
-	log.Fatal(http.ListenAndServe(portNum, nil))
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed to start: %v", err)
+			return
+		}
+		fmt.Printf("Server started on localhost%s\n", portNum)
+	}()
+
+	// wait for interrupt signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	fmt.Println("\nShutting down server...")
+
+  	// Graceful shutdown with 30 second timeout
+  	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+  	defer cancel()
+
+  	if err := server.Shutdown(ctx); err != nil {
+  		log.Fatal("Server forced to shutdown:", err)
+  	}
+
+  	fmt.Println("Server exited")
+
 }

@@ -5,10 +5,19 @@ This is the next step from LED_controller.
 
 I wanted to build something scalable so everything is being re-written in Go...
 
-Components:
-- Go server backend
-- OpenAI API integration
-- TTS with elevenlabs 
-- Google Speech to text
-- Local client for pi with built in LED matrix
-- Web client for remote access to Chatbot
+## Architecture
+
+### Current Components:
+- **Go server backend** - WebSocket coordination, hardware control
+- **Go client** - Raspberry Pi hardware interface (LEDs, audio)
+- **OpenAI API integration** - Direct API calls from Go server
+- **TTS with elevenlabs** - Text-to-speech processing
+- **Google Speech to text** - Voice recognition
+- **LED matrix visualization** - Synchronized with speech responses
+
+### Future Evolution:
+- **Python AI Service** - Advanced LLM processing with LangChain
+- **RAG Integration** - Vector databases, retrieval-augmented generation
+- **Agentic Workflows** - Multi-step reasoning and tool calling
+- **Hybrid Architecture** - Go for real-time systems + Python for AI/ML
+
