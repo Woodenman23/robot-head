@@ -41,10 +41,28 @@ func createResponse(msg shared.Message) shared.Message {
   				}
   			}
 
+			audioBytes, err := generateSpeech(aiResponse)
+			if err != nil {
+				log.Printf("TTS error: %v", err)
+				// Fallback to text response
+				return shared.Message{
+					Type:      shared.MessageTypeAIResponse,
+					Timestamp: time.Now().Unix(),
+					Data:      aiResponse,
+  				}
+			}
+
+			// Return audio message
+			audioData := shared.AudioData{
+				Text:      aiResponse,
+				AudioData: audioBytes,
+				MimeType:  "audio/mpeg",
+			}
+
   			return shared.Message{
-  				Type:      shared.MessageTypeAIResponse,
+  				Type:      shared.MessageTypeAudio,
   				Timestamp: time.Now().Unix(),
-  				Data:      aiResponse,
+  				Data:      audioData,
   			}
   		}
   	}
