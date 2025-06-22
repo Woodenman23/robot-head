@@ -2,7 +2,10 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/url"
 	"os"
@@ -10,6 +13,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/gopxl/beep"
+	"github.com/gopxl/beep/mp3"
+	"github.com/gopxl/beep/speaker"
 )
 
 func openWebsocket() (*websocket.Conn, error) {
@@ -61,15 +67,38 @@ func listenForMessages(conn *websocket.Conn) {
 			log.Println("Connection closed", err)
 			break
 		}
-		// Format AI responses nicely
-		if response.Type == shared.MessageTypeAIResponse {
+	switch  response.Type {
+	case shared.MessageTypeAIResponse:
 			fmt.Printf("\nRobot: %v\n\n", response.Data)
-		} else {
+	case shared.MessageTypeAudio:
+		// Parse audio data
+		audioDataJSON, err := json.Marshal(response.Data)
+		if err != nil {
+			log.Printf("Failed to marshal audio data: %v\n", err)
+			continue
+		}
+
+		var audioData shared.AudioData
+		err = json.Unmarshal(audioDataJSON, &audioData)
+		if err != nil {
+			log.Printf("Failed to unmarshal audio data: %v\n", err)
+			continue
+		}
+
+		fmt.Printf("\nPlaying audio for: %s\n", audioData.Text)
+		go func() {
+			err := playAudio(audioData.AudioData)
+			if err != nil {
+				log.Printf("Failed to play audio: %v\n", err)
+			}
+		}()		
+		default:
 			// Other message types (status, error, etc.)
 			fmt.Printf("Server: %v\n", response.Data)
-		}
+		}	
 	}
 }
+
 
 func sendMessages(conn *websocket.Conn) {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -88,6 +117,31 @@ func sendMessages(conn *websocket.Conn) {
 			break
 		}
 	}
+}
+
+func playAudio(audioData []byte) error {
+	// Initialize speaker
+	sr := beep.SampleRate(44100)
+	speaker.Init(sr, sr.N(time.Second))
+	
+	// create a reader from the MP3 data
+	reader := bytes.NewReader(audioData)
+	streamer, format, err := mp3.Decode(io.NopCloser(reader))
+	if err != nil {
+		return fmt.Errorf("failed to decode MP3: %v", err)
+	}
+	defer streamer.Close()
+
+	// Resample if neccessary
+	resampled := beep.Resample(4, format.SampleRate, sr, streamer)
+
+	done := make(chan bool)
+	speaker.Play(beep.Seq(resampled, beep.Callback(func() {
+		done <- true	
+	})))
+
+	<-done
+	return nil
 }
 
 func main() {

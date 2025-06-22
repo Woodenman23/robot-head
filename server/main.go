@@ -129,13 +129,13 @@ func main() {
 	})
 
 	http.HandleFunc("/ws", establishWebsocketConnection)
+	fmt.Printf("Server running on localhost%s\n", portNum)
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed to start: %v", err)
 			return
 		}
-		fmt.Printf("Server started on localhost%s\n", portNum)
 	}()
 
 	// wait for interrupt signal
