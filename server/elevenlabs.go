@@ -15,7 +15,7 @@ import (
 const (
 	ElevenlabsAPIURL = "https://api.elevenlabs.io/v1/text-to-speech"
 	Model = "eleven_turbo_v2"
-	VoiceID   = "pNInz6obpgDQGcFmaJgB" // Yowz - South London Bloke
+	VoiceID   = "Oe8Lhg3t63j9BsrTQBjx" // Yowz - South London Bloke
 )
 
 type TTSRequest struct {
