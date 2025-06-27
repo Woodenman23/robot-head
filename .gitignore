@@ -1,3 +1,10 @@
 CLAUDE.md
 TUTORIAL.md
 resources.txt
+
+# External dependencies
+whisper.cpp/
+
+# Build artifacts  
+models/
+*.bin

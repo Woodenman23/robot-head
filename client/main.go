@@ -1,21 +1,14 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/url"
-	"os"
 	"robot-head/shared"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/gopxl/beep"
-	"github.com/gopxl/beep/mp3"
-	"github.com/gopxl/beep/speaker"
 )
 
 func openWebsocket() (*websocket.Conn, error) {
@@ -100,50 +93,6 @@ func listenForMessages(conn *websocket.Conn) {
 }
 
 
-func sendMessages(conn *websocket.Conn) {
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Println("Type messages (Ctrl+C to quit): ")
-	for scanner.Scan() {
-		text := scanner.Text()
-		if text == "" {
-			continue
-		}
-		
-
-		userMessage := createUserMessage(text)
-		err := conn.WriteJSON(userMessage)
-		if err != nil {
-			log.Println("Failed to send message:", err)
-			break
-		}
-	}
-}
-
-func playAudio(audioData []byte) error {
-	// Initialize speaker
-	sr := beep.SampleRate(44100)
-	speaker.Init(sr, sr.N(time.Second))
-	
-	// create a reader from the MP3 data
-	reader := bytes.NewReader(audioData)
-	streamer, format, err := mp3.Decode(io.NopCloser(reader))
-	if err != nil {
-		return fmt.Errorf("failed to decode MP3: %v", err)
-	}
-	defer streamer.Close()
-
-	// Resample if neccessary
-	resampled := beep.Resample(4, format.SampleRate, sr, streamer)
-
-	done := make(chan bool)
-	speaker.Play(beep.Seq(resampled, beep.Callback(func() {
-		done <- true	
-	})))
-
-	<-done
-	return nil
-}
-
 func main() {
 	fmt.Println("Robot Head Client starting...")
 
@@ -169,5 +118,5 @@ func main() {
 
 	go listenForMessages(conn)
 
-	sendMessages(conn)
+	sendVoiceMessages(conn)
 }
